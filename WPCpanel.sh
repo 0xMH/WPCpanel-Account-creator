@@ -4,7 +4,6 @@
 
 # Help message.
 usage="$(basename "$0") [-h] [-e -q] <username> <domain> -- program to install WP on cpanel servers.
-
 where:
     <domain> string	The account's main domain name
     <user>	 string	The account's username.	A valid username.
@@ -50,7 +49,7 @@ done
 shift $(($OPTIND -1)) # Remove options, leave arguments.
 
 #Set username and domain from positional arguments.
-dmoain=$1
+domain=$1
 username=$2
 
 # Test if wwwacct is available.
@@ -85,18 +84,9 @@ fi
 
 newpass=$(pwgen -s -1 35)
 
-#echo "Keep in mind they are not supported, though."
-#while [[ $CONTINUE != "y" && $CONTINUE != "n" ]]; do
-#    read -p "Continue ? [y/n]: " -e CONTINUE
-#done
-#if [[ "$CONTINUE" = "n" ]]; then
-#    echo "Ok, bye !"
-#    exit 4
-#fi
-
 echo ""
 echo "Cpanel account is being made"
-echo y | /usr/local/cpanel/scripts/wwwacct  $dmoain $username $newpass
+echo y | /usr/local/cpanel/scripts/wwwacct  $domain $username $newpass
 
 
 # Add a section to your php.ini file for suhosin tweaks in order for wp-cli to work
@@ -116,10 +106,11 @@ if php -i | grep -q suhosin; then
     fi
     phpini=$(php --ini | grep "Configuration File" | tr -s ' ' | cut -d ' ' -f 4 | grep ini)
     echo "suhosin.executor.include.whitelist=\"phar\"" >> $phpini
+    Suhosin="y"
 fi
 
 echo ""
-echo "Wordpress is being downloaded"
+echo "Wordpress is being downloaded..."
 # download WP.
 curl -sL https://wordpress.org/latest.tar.gz -o wp.tar.gz
 tar -zxf wp.tar.gz -C /home/$username/public_html --strip-components=1
@@ -127,12 +118,12 @@ rm -rf  wp.tar.gz
 
 echo ""
 echo "Database is being made..."
-# Create mySQL database
+
 dbname=${username:0:8}"_wordpress"
 dbuser=${username:0:8}"_dbuser"
 dbpassword=$(pwgen -s -1 35)
 
-
+# Create mySQL database
 echo ""
 echo -e "\n\nCreating mySQL database ($dbname) in new cPanel account"
 uapi --user=$username Mysql create_database name=$dbname
@@ -148,9 +139,29 @@ rm -f ./wp-cli.phar
 
 echo ""
 echo "Suhosin tweak is being removed..."
-# Remove suhosin tweak
-sed -i '$ d' $phpini
 
+# Remove suhosin tweak
+if [[ $Suhosin = "y" ]]; then
+    sed -i '$ d' $phpini
+fi
+
+# if email is added.. send email with Credentials.
+if [[ -n $email ]];then
+    echo ""
+    echo "Sending Email to $email with Credentials:"
+
+    mail -s "Cpanel Credentials" "$email" <<EOF
+     "+==============================================================+"
+     "| New Account Info                                             |"
+     "+==============================================================+"
+     "|
+     "| Cpanel credentials:
+     "| Cpanel domain: $domain"
+     "| Cpanel user: $username
+     "| Cpanel password: $newpass
+EOF
+
+fi
 
 
 
@@ -159,7 +170,7 @@ echo "| New Account Info                                             |"
 echo "+==============================================================+"
 echo "|                                                              "
 echo "| Cpanel credentials:                                          "
-echo "| Cpanel domain: $dmoain"
+echo "| Cpanel domain: $domain"
 echo "| Cpanel user: $username                                       "
 echo "| Cpanel password: $newpass                                    "
 echo "|                                                              "
