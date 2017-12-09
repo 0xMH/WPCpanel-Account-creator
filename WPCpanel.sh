@@ -77,7 +77,7 @@ fi
 if [[ ! -e "/usr/bin/pwgen" ]]; then
 
     if [[ $OS == 'debian' ]]; then
-        apt-get -yinstall pwgen
+        apt-get -y install pwgen
     else [[ $OS == 'centos' ]]
         yum -y install pwgen
     fi
