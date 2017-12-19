@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
-
+# cut -d ':' -f 1 /etc/userdomains | sed -n '2,$p' | grep  "^mhamza.com$"
+#
 
 # Help message.
-usage="$(basename "$0") [-h] [-e -q] <username> <domain> -- program to install WP on cpanel servers.
+usage="$(basename "$0") [-h] [-e -q] <domain> <username> -- program to install WP on cpanel servers.
 where:
     <domain> string	The account's main domain name
     <user>	 string	The account's username.	A valid username.
@@ -52,11 +53,6 @@ shift $(($OPTIND -1)) # Remove options, leave arguments.
 domain=$1
 username=$2
 
-# Test if wwwacct is available.
-if [[ ! -e "/usr/local/cpanel/scripts/wwwacct" ]] ; then
-    echo "wwwacct not found"
-    exit 1
-fi
 
 # OS type
 if [[ -e /etc/debian_version ]]; then
@@ -69,19 +65,72 @@ else
 	exit 4
 fi
 
-
-
-
 # check and install pwgen
 if [[ ! -e "/usr/bin/pwgen" ]]; then
 
     if [[ $OS == 'debian' ]]; then
         apt-get -y install pwgen
     else [[ $OS == 'centos' ]]
+        yum -y install epel-release
         yum -y install pwgen
     fi
 fi
 
+# check if domain is already got account.
+cut -d ':' -f 1 /etc/userdomains | sed -n '2,$p' | grep -q  "^$domain$"
+
+if [[ $? -eq 0 ]];then
+    echo ""
+    echo "Domain $domain is found"
+    echo " do you want to retrieve\\change account info?"
+    while [[ $CONTINUE != "y" && $CONTINUE != "n" ]]; do
+        read -p "Continue ? [y/n]: " -e CONTINUE
+    done
+    if [[ "$CONTINUE" = "n" ]]; then
+        echo "Ok, bye !"
+        exit 4
+    fi
+    user_name=$(/scripts/whoowns "$domain")
+    newpass=$(pwgen -s -1 35)
+    whmapi0 passwd user=$user_name pass=$newpass
+
+    # if email is added.. send email with Credentials.
+    if [[ -n $email ]];then
+        echo ""
+        echo "Sending Email to $email with Credentials:"
+
+        mail -s "Cpanel Credentials" "$email" <<EOF
+         "+==============================================================+"
+         "| New Account Info                                             |"
+         "+==============================================================+"
+         "|
+         "| Cpanel credentials:
+         "| Cpanel domain: $domain"
+         "| Cpanel user: $user_name
+         "| Cpanel password: $newpass 
+EOF
+
+    fi
+
+    echo "+==============================================================+"
+    echo "|      Account Info                                             |"
+    echo "+==============================================================+"
+    echo "|                                                              "
+    echo "| Cpanel credentials:                                          "
+    echo "| Cpanel domain: $domain"
+    echo "| Cpanel user: $user_name                                       "
+    echo "| Cpanel password: $newpass                                    "
+    echo "|                                                              "
+
+exit
+fi
+
+
+# Test if wwwacct is available.
+if [[ ! -e "/usr/local/cpanel/scripts/wwwacct" ]] ; then
+    echo "wwwacct not found"
+    exit 1
+fi
 newpass=$(pwgen -s -1 35)
 
 echo ""
@@ -137,11 +186,11 @@ chmod u+x ./wp-cli.phar
 ./wp-cli.phar config create --dbname="$dbname" --dbuser="$dbuser" --dbpass="$dbpassword" --dbhost="localhost" --path="/home/$username/public_html/" --allow-root
 rm -f ./wp-cli.phar
 
-echo ""
-echo "Suhosin tweak is being removed..."
 
 # Remove suhosin tweak
 if [[ $Suhosin = "y" ]]; then
+    echo ""
+    echo "Suhosin tweak is being removed..."
     sed -i '$ d' $phpini
 fi
 
