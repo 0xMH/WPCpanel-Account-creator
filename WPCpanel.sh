@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# cut -d ':' -f 1 /etc/userdomains | sed -n '2,$p' | grep  "^mhamza.com$"
-#
-
 # Help message.
 usage="$(basename "$0") [-h] [-e -q] <domain> <username> -- program to install WP on cpanel servers.
 where:
@@ -12,12 +9,10 @@ where:
     -e  set the user's email
     -q  integer,    The account's disk space quota"
 
-
 if [[ "$EUID" -ne 0 ]]; then
 	echo "Sorry, you need to run this as root"
 	exit 1
 fi
-
 
 if [[ "$#" -eq 0 ]]; then
     echo "please enter some arguments"
@@ -25,9 +20,7 @@ if [[ "$#" -eq 0 ]]; then
     exit 1
 fi
 
-
 email= quota=
-
 while getopts ':e:q:h' opt; do
     case $opt in
 
@@ -46,18 +39,14 @@ while getopts ':e:q:h' opt; do
                 ;;
     esac
 done
-
 shift $(($OPTIND -1)) # Remove options, leave arguments.
 
 #Set username and domain from positional arguments.
 domain=$1
 username=$2
-
-
 # OS type
 if [[ -e /etc/debian_version ]]; then
 	OS="debian"
-
 elif [[ -e /etc/centos-release || -e /etc/redhat-release ]]; then
 	OS="centos"
 else
@@ -67,7 +56,6 @@ fi
 
 # check and install pwgen
 if [[ ! -e "/usr/bin/pwgen" ]]; then
-
     if [[ $OS == 'debian' ]]; then
         apt-get -y install pwgen
     else [[ $OS == 'centos' ]]
@@ -93,7 +81,6 @@ if [[ $? -eq 0 ]];then
     user_name=$(/scripts/whoowns "$domain")
     newpass=$(pwgen -s -1 35)
     whmapi0 passwd user=$user_name pass=$newpass
-
     # if email is added.. send email with Credentials.
     if [[ -n $email ]];then
         echo ""
@@ -109,7 +96,6 @@ if [[ $? -eq 0 ]];then
          "| Cpanel user: $user_name
          "| Cpanel password: $newpass 
 EOF
-
     fi
 
     echo "+==============================================================+"
@@ -132,15 +118,10 @@ if [[ ! -e "/usr/local/cpanel/scripts/wwwacct" ]] ; then
     exit 1
 fi
 newpass=$(pwgen -s -1 35)
-
 echo ""
 echo "Cpanel account is being made"
 echo y | /usr/local/cpanel/scripts/wwwacct  $domain $username $newpass
 
-
-# Add a section to your php.ini file for suhosin tweaks in order for wp-cli to work
-# PS: remove it after
-# add an if condition using quite option in grep
 if php -i | grep -q suhosin; then
     echo ""
     echo "Suhosin is found..."
@@ -186,7 +167,7 @@ chmod u+x ./wp-cli.phar
 ./wp-cli.phar config create --dbname="$dbname" --dbuser="$dbuser" --dbpass="$dbpassword" --dbhost="localhost" --path="/home/$username/public_html/" --allow-root
 rm -f ./wp-cli.phar
 
-
+chown -R $username:$username /home/$username/public_html 
 # Remove suhosin tweak
 if [[ $Suhosin = "y" ]]; then
     echo ""
@@ -211,9 +192,6 @@ if [[ -n $email ]];then
 EOF
 
 fi
-
-
-
 echo "+==============================================================+"
 echo "| New Account Info                                             |"
 echo "+==============================================================+"
@@ -223,7 +201,6 @@ echo "| Cpanel domain: $domain"
 echo "| Cpanel user: $username                                       "
 echo "| Cpanel password: $newpass                                    "
 echo "|                                                              "
-
 echo "|                                                              "
 echo "| Database credentials:                                        "
 echo "| DB name: $dbname                                             "
